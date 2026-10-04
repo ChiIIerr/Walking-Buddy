@@ -82,14 +82,18 @@ For a signed release, create a persistent key (do this once, and back it up):
 mkdir -p signing
 keytool -genkeypair -keystore signing/walking-buddy.jks \
   -alias walking-buddy -keyalg RSA -keysize 2048 -validity 10000 \
-  -storepass walkingbuddy-dev -keypass walkingbuddy-dev \
   -dname 'CN=Walking Buddy Developer, O=Walking Buddy, C=US'
+# Follow keytool's prompts to choose a private password.
+# Supply your WB_* environment variables, then:
 ./gradlew assembleRelease
 ```
 
-The default development-key passwords are for local builds only. For your own
-release key set `WB_KEYSTORE`, `WB_STORE_PASSWORD`, `WB_KEY_ALIAS`, and
-`WB_KEY_PASSWORD`. The shipped APK's signing key is retained in the local
+For a release build, set `WB_KEYSTORE` (an absolute path), `WB_STORE_PASSWORD`,
+`WB_KEY_ALIAS`, and `WB_KEY_PASSWORD` in your private environment. Alternatively,
+create the ignored local file `signing/keystore.properties` with `storeFile`
+(relative to `signing/`), `storePassword`, `keyAlias`, and `keyPassword` values.
+There are no default signing passwords in this repository. The shipped APK's
+signing key and local signing configuration are retained in the private,
 ignored `signing/` directory. Reuse that key to publish updates that install over
 this APK. A differently signed build requires uninstalling the existing app,
 which erases its data; export a backup before doing so. Never commit a private key.
