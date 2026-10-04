@@ -1,0 +1,41 @@
+plugins { id 'com.android.application' }
+
+android {
+    namespace 'com.walkingbuddy.app'
+    compileSdk 35
+    defaultConfig {
+        applicationId 'com.walkingbuddy.app'
+        minSdk 26
+        targetSdk 35
+        versionCode 1
+        versionName '1.0.0'
+        testInstrumentationRunner 'com.walkingbuddy.app.SmokeInstrumentation'
+    }
+    // A developer-signed, non-debuggable release is directly installable by sideloading.
+    // Set WB_KEYSTORE / WB_STORE_PASSWORD / WB_KEY_ALIAS / WB_KEY_PASSWORD for your own key.
+    def localSigning = new Properties()
+    def localSigningFile = rootProject.file('signing/keystore.properties')
+    if (localSigningFile.exists()) localSigningFile.withInputStream { localSigning.load(it) }
+    signingConfigs {
+        release {
+            if (System.getenv('WB_KEYSTORE')) {
+                storeFile file(System.getenv('WB_KEYSTORE'))
+                storePassword System.getenv('WB_STORE_PASSWORD')
+                keyAlias System.getenv('WB_KEY_ALIAS')
+                keyPassword System.getenv('WB_KEY_PASSWORD')
+            } else if (localSigningFile.exists()) {
+                storeFile rootProject.file('signing/' + localSigning.getProperty('storeFile'))
+                storePassword localSigning.getProperty('storePassword')
+                keyAlias localSigning.getProperty('keyAlias')
+                keyPassword localSigning.getProperty('keyPassword')
+            }
+        }
+    }
+    buildTypes {
+        release { signingConfig signingConfigs.release; minifyEnabled false }
+        debug { applicationIdSuffix '.debug' }
+    }
+    compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
+    lint { abortOnError true; checkReleaseBuilds true }
+}
+dependencies { testImplementation 'junit:junit:4.13.2' }
