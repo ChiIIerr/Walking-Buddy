@@ -5,3 +5,4 @@ signing/
 *.jks
 *.keystore
 .DS_Store
+ci-logs/

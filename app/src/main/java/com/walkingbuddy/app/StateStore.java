@@ -32,7 +32,11 @@ public final class StateStore {
         state.advance(LocalDate.now(), System.currentTimeMillis()); change.accept(state); save(); return state;
     }
     public synchronized void save() { prefs.edit().putString("state", encode(state)).apply(); }
-    public synchronized void reset() { state = new GameState(LocalDate.now(), System.currentTimeMillis()); save(); }
+    public synchronized void reset() {
+        state = new GameState(LocalDate.now(), System.currentTimeMillis());
+        // Clear recovery copies too: reset must delete all prior walking data.
+        prefs.edit().clear().putString("state", encode(state)).apply();
+    }
     public synchronized void replace(GameState restored) {
         prefs.edit().putString("previous_backup", encode(state)).apply();
         restored.tracking = false; restored.lastSensor = -1; restored.lastBoot = -1; restored.lastSensorDay = null;

@@ -140,6 +140,7 @@ public final class MainActivity extends Activity {
         heading("ONE LAST LITTLE STEP","Let your steps count.","Your phone can count steps for you, even while Walking Buddy is in the background.");
         LinearLayout details=card();details.addView(text("Movement permission",17,INK,true));gap(details,7);details.addView(text("Allow physical activity access to use your phone's low-power step counter. A quiet notification keeps tracking active.",14,MUTED,false));gap(details,16);
         details.addView(text("Your walks stay with you",17,INK,true));gap(details,7);details.addView(text("Your progress is saved on this phone. No account, ads, or data uploads.",14,MUTED,false));content.addView(details);gap(content,28);
+        content.addView(button("Privacy policy","setup_privacy",this::privacyDialog,false));gap(content,10);
         content.addView(button("Enable step tracking","setup_track",()->{setup=0;tab=0;render();enableTracking();},true));gap(content,10);
         content.addView(button("I'll enter steps myself","setup_manual",()->{setup=0;tab=0;render();},false));
     }
@@ -253,9 +254,25 @@ public final class MainActivity extends Activity {
         option("back","Restore a backup","Bring back a saved Walking Buddy file","restore_backup",this::restore);
         gap(content,22);section("Good to know");
         option("heart","How to keep a happy buddy","Steps, leaves, and little acts of care","how_to",()->info("A happy little life","Reach your daily goal to restore 15 health and earn 3 bonus leaves. Every 500 steps earns another leaf. Miss a daily goal and your buddy loses 20 health. At zero health, their journey ends and you can adopt a new friend.\n\nFood, water, and cleanliness slowly decline. Snacks cost 1 leaf; water and cleaning are free. Care actions have a one-minute cooldown.\n\nThe first four companions are available immediately. Lifetime steps unlock the frog, panda, penguin, and dragon. Switching an unlocked buddy keeps health and care levels. Your journal celebrates your personal bests."));
-        option("lock","Privacy & original art","Your data stays on this phone","privacy",()->info("Private by design","Walking Buddy stores steps, goals, care levels, and buddy details locally on this phone. It has no network permission, accounts, ads, subscriptions, or analytics. Sharing and file export happen only when you choose them. Uninstalling removes local progress, so save a backup first.\n\nAll pixel pets, scenery, and icons were created for this app. Walking Buddy is an independent app inspired by virtual-pet step trackers and is not affiliated with Step Pals. Art is licensed CC0; source is MIT.\n\nVersion 1.0.0 · Android 8.0 or later."));
+        option("lock","Privacy policy","Read how your steps and files are handled","privacy",this::privacyDialog);
+        option("heart","About Walking Buddy","Original pixel art · general wellness","about",()->info("About Walking Buddy","Walking Buddy is a general wellness and virtual-pet app. Step counts and distance estimates may be incomplete or inaccurate. It is not a medical device and does not diagnose, treat, cure, or prevent any medical condition. Seek a qualified healthcare professional's advice for medical questions. Your buddy's health is a game mechanic, not an assessment of your health.\n\nAll pixel pets, scenery, and icons were created for this app. Walking Buddy is independent and is not affiliated with Step Pals. Art is CC0; source is MIT.\n\nVersion 1.1.0 · Android 8.0 or later."));
         option("back","Reset all progress","Start fresh on this phone","reset_progress",()->new AlertDialog.Builder(this).setTitle("Start a new adventure?").setMessage("This erases your steps, buddies, and journal from this phone. Save a backup first if you'd like to keep them.").setNegativeButton("Keep my progress",null).setPositiveButton("Reset progress",(d,w)->{stopService(new Intent(this,StepService.class));store.reset();state=store.read();tab=0;setup=0;render();}).show());
-        gap(content,26);TextView footer=text("WALKING BUDDY  1.0.0\nMade for the little walks that matter.",11,MUTED,false);footer.setGravity(Gravity.CENTER);footer.setLineSpacing(dp(7),1);content.addView(footer);
+        gap(content,26);TextView footer=text("WALKING BUDDY  1.1.0\nMade for the little walks that matter.",11,MUTED,false);footer.setGravity(Gravity.CENTER);footer.setLineSpacing(dp(7),1);content.addView(footer);
+    }
+    private void privacyDialog(){
+        String policy;
+        try(InputStream in=getAssets().open("privacy.txt")){
+            ByteArrayOutputStream out=new ByteArrayOutputStream();byte[] buffer=new byte[4096];int count;
+            while((count=in.read(buffer))!=-1)out.write(buffer,0,count);
+            policy=out.toString("UTF-8");
+        }catch(IOException e){info("Privacy policy","The privacy policy could not be opened. Please reinstall the app from the official Walking Buddy repository.");return;}
+        TextView copy=text(policy,14,INK,false);copy.setPadding(dp(24),dp(12),dp(24),dp(12));copy.setTextIsSelectable(true);
+        ScrollView page=new ScrollView(this);page.addView(copy);
+        new AlertDialog.Builder(this).setTitle("Privacy policy").setView(page).setNegativeButton("Close",null)
+            .setPositiveButton("Read online",(d,w)->{
+                try{startActivity(new Intent(Intent.ACTION_VIEW,Uri.parse("https://github.com/ChiIIerr/Walking-Buddy/blob/main/docs/PRIVACY.md")));}
+                catch(ActivityNotFoundException e){toast("Install a browser to open the online policy.");}
+            }).show();
     }
     private void bottomNav(){
         nav=row();nav.setPadding(dp(12),dp(8),dp(12),dp(7));nav.setBackgroundColor(BG);String[] labels={"Today","Buddies","Journal","Settings"};String[] icons={"home","paw","chart","settings"};

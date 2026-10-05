@@ -8,7 +8,7 @@ Walk a little, care a little, and collect a club of original animated pixel comp
 
 ## Install on your Android phone
 
-1. Download **[Walking-Buddy-1.0.0.apk](dist/Walking-Buddy-1.0.0.apk)**. On GitHub's file page, use **Download raw file**.
+1. Download **[Walking-Buddy-1.1.0.apk](dist/Walking-Buddy-1.1.0.apk)**. On GitHub's file page, use **Download raw file**.
 2. Open the downloaded APK on your phone.
 3. If prompted, allow **Install unknown apps** for the browser or Files app you used, then tap **Install**.
 4. Open **Walking Buddy**, pick a buddy and a goal, and enable step counting or choose manual entry.
@@ -16,6 +16,20 @@ Walk a little, care a little, and collect a club of original animated pixel comp
 Requires **Android 8.0 (API 26) or later**. No Google Play installation, account,
 subscription, or network connection is needed. The APK is signed and is a
 non-debuggable release. The private signing key stays outside version control.
+
+## Google Play beta
+
+The signed [Walking-Buddy-1.1.0.aab](dist/Walking-Buddy-1.1.0.aab) is the Play
+Console upload (version code 2, target Android 16 / API 36). Use the APK above
+for sideloading. Both retain the existing release certificate.
+
+The [Play submission guide](docs/play/PLAY-CONSOLE.md) includes signing choices,
+declaration answers, and the remaining publisher tasks. The [store listing](docs/play/STORE-LISTING.md),
+[icon and feature graphic](docs/play/), [screenshots](docs/screenshots/), and
+[privacy policy](docs/PRIVACY.md) are included. Google Play approval and rollout
+still happen in the publisher's Console; a real-phone foreground-service demo,
+support email, audience/rating choices, and account verification are required
+where requested. No Play release has been submitted by this repository.
 
 ## What's inside
 
@@ -65,9 +79,9 @@ re-entering a manual total. Distance shown in the journal is an estimate.
 
 ## Build
 
-Install JDK 17 and Android SDK platform 35/build-tools 35.0.0. Set `ANDROID_HOME`
+Install JDK 17 and Android SDK platform 36/build-tools 35.0.0. Set `ANDROID_HOME`
 or create `local.properties` containing `sdk.dir=/absolute/path/to/android-sdk`.
-The checked-in Gradle wrapper downloads Gradle 8.11.1; Android Gradle Plugin is 8.9.1.
+The checked-in Gradle wrapper downloads Gradle 8.13; Android Gradle Plugin is 8.13.2.
 
 ```sh
 ./gradlew testDebugUnitTest lintDebug assembleDebug
@@ -85,7 +99,7 @@ keytool -genkeypair -keystore signing/walking-buddy.jks \
   -dname 'CN=Walking Buddy Developer, O=Walking Buddy, C=US'
 # Follow keytool's prompts to choose a private password.
 # Supply your WB_* environment variables, then:
-./gradlew assembleRelease
+./gradlew assembleRelease bundleRelease
 ```
 
 For a release build, set `WB_KEYSTORE` (an absolute path), `WB_STORE_PASSWORD`,
@@ -116,8 +130,12 @@ manual step entry, goal rewards, care, navigation, validation, reduced animation
 and persistence. It writes screenshots to the debug app's external `files/qa`
 directory. See [verification details](docs/VERIFICATION.md).
 
-GitHub Actions runs unit tests, Android lint, and a debug APK build. The checked-in
-release APK in `dist/` is the artifact tested for the initial delivery.
+GitHub Actions uses Ubuntu 24.04 and Node 24 actions, runs unit tests and lint
+for debug and release, and builds a debug APK plus an **unsigned** release bundle.
+Reports and SDK/build logs are uploaded when they exist; missing required outputs
+fail a successful build. No private signing material is available to CI. Use the
+signed artifacts in `dist/` for distribution. Increment `versionCode` for each
+new Play upload and regenerate `dist/SHA256SUMS` when replacing release files.
 
 ## Art and licensing
 

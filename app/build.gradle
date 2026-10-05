@@ -2,13 +2,13 @@ plugins { id 'com.android.application' }
 
 android {
     namespace 'com.walkingbuddy.app'
-    compileSdk 35
+    compileSdk 36
     defaultConfig {
         applicationId 'com.walkingbuddy.app'
         minSdk 26
-        targetSdk 35
-        versionCode 1
-        versionName '1.0.0'
+        targetSdk 36
+        versionCode 2
+        versionName '1.1.0'
         testInstrumentationRunner 'com.walkingbuddy.app.SmokeInstrumentation'
     }
     // A developer-signed, non-debuggable release is directly installable by sideloading.
@@ -16,6 +16,7 @@ android {
     def localSigning = new Properties()
     def localSigningFile = rootProject.file('signing/keystore.properties')
     if (localSigningFile.exists()) localSigningFile.withInputStream { localSigning.load(it) }
+    def hasReleaseSigning = System.getenv('WB_KEYSTORE') || localSigningFile.exists()
     signingConfigs {
         release {
             if (System.getenv('WB_KEYSTORE')) {
@@ -32,7 +33,10 @@ android {
         }
     }
     buildTypes {
-        release { signingConfig signingConfigs.release; minifyEnabled false }
+        release {
+            if (hasReleaseSigning) signingConfig signingConfigs.release
+            minifyEnabled false
+        }
         debug { applicationIdSuffix '.debug' }
     }
     compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }

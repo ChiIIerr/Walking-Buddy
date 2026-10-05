@@ -17,7 +17,11 @@ public final class SmokeInstrumentation extends Instrumentation {
     @Override public void onStart(){
         Bundle result=new Bundle();
         try{
-            StateStore store=StateStore.get(getTargetContext());runOnMainSync(store::reset);
+            StateStore store=StateStore.get(getTargetContext());
+            android.content.SharedPreferences prefs=getTargetContext().getSharedPreferences("walking_buddy",Context.MODE_PRIVATE);
+            prefs.edit().putString("previous_backup","old private progress").putString("unreadable_backup","damaged private progress").commit();
+            runOnMainSync(store::reset);
+            check(!prefs.contains("previous_backup")&&!prefs.contains("unreadable_backup"),"Reset deletes recovery copies");
             activity=(MainActivity)startActivitySync(new Intent(getTargetContext(),MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));waitForIdleSync();
             assertTag("starter_0");capture("01-adoption");tap("starter_2");tap("adopt_continue");assertTag("buddy_name");
             runOnMainSync(()->((EditText)find(activity.getWindow().getDecorView(),"buddy_name")).setText("Scout"));tap("setup_adopt");assertTag("setup_manual");tap("setup_manual");
@@ -29,6 +33,8 @@ public final class SmokeInstrumentation extends Instrumentation {
             tap("tab_2");assertTag("share_progress");capture("04-journal");tap("tab_3");assertTag("edit_goal");capture("05-settings");
             tap("edit_goal");setActiveInput("0");tapText("Save goal");check(store.read().goal==6000,"Invalid goal rejected");setActiveInput("8000");tapText("Save goal");check(store.read().goal==8000,"Goal edited");
             tap("reduce_motion");check(store.read().reduceMotion,"Reduced animation toggled");
+            tap("privacy");check(node(getUiAutomation().getRootInActiveWindow(),false,"Read online")!=null,"Offline privacy policy includes online link");tapText("Close");
+            tap("about");tapText("Got it");
             GameState s=store.read();String raw=StateStore.encode(s);GameState copy=StateStore.decode(raw);
             check(copy.steps()==6500&&copy.name.equals("Scout")&&copy.buddy==2,"Saved state round trip");
             runOnMainSync(()->{activity.finish();});waitForIdleSync();
