@@ -71,12 +71,15 @@ public final class StepService extends Service implements SensorEventListener {
             .addAction(new Notification.Action.Builder(null, "Pause tracking", pause).build()).build();
     }
     @Override public void onSensorChanged(SensorEvent event) {
-        if (!allowed(this)) { StateStore.get(this).update(s -> s.tracking = false); stopSelf(); return; }
+        StateStore store = StateStore.get(this);
+        if (!store.read().tracking) { stopSelf(); return; }
+        if (!allowed(this)) { store.update(s -> s.tracking = false); stopSelf(); return; }
+        if (event.values.length == 0 || !Float.isFinite(event.values[0]) || event.values[0] < 0) return;
         long value = (long)event.values[0];
         long eventMillis = System.currentTimeMillis() - (SystemClock.elapsedRealtimeNanos() - event.timestamp) / 1000000L;
         LocalDate sampleDay = Instant.ofEpochMilli(eventMillis).atZone(ZoneId.systemDefault()).toLocalDate();
         int boot = Settings.Global.getInt(getContentResolver(), Settings.Global.BOOT_COUNT, 0);
-        StateStore.get(this).update(s -> s.sensor(value, boot, sampleDay));
+        store.update(s -> s.sensor(value, boot, sampleDay, event.timestamp));
         sendBroadcast(new Intent(UPDATE).setPackage(getPackageName()));
         if (SystemClock.elapsedRealtime() - lastNotification > 5000) notifyProgress();
     }
