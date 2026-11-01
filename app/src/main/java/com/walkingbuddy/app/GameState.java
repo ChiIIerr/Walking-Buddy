@@ -33,6 +33,8 @@ public final class GameState {
     public long lastDecay;
     public long lastFeed, lastWater, lastClean;
     public long lastSensor = -1;
+    /** Timestamp of the last accepted sensor event, in nanoseconds since boot. */
+    public long lastSensorTimestamp = -1;
     public int lastBoot = -1;
     public LocalDate lastSensorDay;
     public final TreeMap<LocalDate, Day> history = new TreeMap<>();
@@ -102,13 +104,18 @@ public final class GameState {
             lastDecay += hours * 3600000L;
         }
     }
-    public void sensor(long value, int boot, LocalDate sampleDay) {
+    public void sensor(long value, int boot, LocalDate sampleDay, long timestamp) {
+        // Queued events must not change paused progress or replace another day's baseline.
+        if (!tracking || value < 0 || timestamp < 0 || !day.equals(sampleDay)) return;
+        // Sensor timestamps use elapsed time since boot, so a reboot starts a new time base.
+        if (lastSensor >= 0 && boot == lastBoot && timestamp <= lastSensorTimestamp) return;
         // Baseline on install, reboot, resume-after-pause, and first sample of a new day.
         if (lastSensor >= 0 && boot == lastBoot && sampleDay.equals(lastSensorDay) && value >= lastSensor) {
             long delta = value - lastSensor;
-            if (sampleDay.equals(day)) sensorSteps += (int) Math.min(delta, MAX_DAILY_STEPS - steps());
+            sensorSteps += (int) Math.min(delta, MAX_DAILY_STEPS - steps());
         }
-        lastSensor = value; lastBoot = boot; lastSensorDay = sampleDay; reward();
+        lastSensor = value; lastBoot = boot; lastSensorDay = sampleDay;
+        lastSensorTimestamp = timestamp; reward();
     }
     public void setManual(int value) {
         if (value < 0 || value > MAX_DAILY_STEPS - sensorSteps) throw new IllegalArgumentException("Enter between 0 and " + (MAX_DAILY_STEPS - sensorSteps) + " steps.");

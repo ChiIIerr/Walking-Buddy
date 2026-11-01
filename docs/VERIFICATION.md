@@ -59,6 +59,37 @@ answers, finish account verification where required, select Play App Signing,
 and provide the real-phone foreground-service demonstration video requested by
 Play. See [the submission guide](play/PLAY-CONSOLE.md).
 
+## Progress reliability development checks — November 1, 2026
+
+These results apply to the development changes based on commit `e312ddb`, after
+the 1.1.0 release verification above. They do not certify a new signed release.
+
+- Four new regressions failed against the original code: a delayed prior-day
+  reading discarded the next valid step delta, a future-day or negative reading
+  replaced the baseline, and a queued reading awarded steps after tracking paused.
+- The updated game rules also reject duplicate/out-of-order event timestamps,
+  retain ordering across process restarts, and accept a fresh timestamp sequence
+  after reboot. Legitimate counter resets and the daily step cap remain covered.
+- The progress codec retains the version-1 schema with an optional event timestamp.
+  Tests verify loading older backups without that field, preserving existing
+  totals and history, and rejecting duplicate/current-day/future history entries.
+- JDK 17.0.20, Gradle 8.13, AGP 8.13.2, Android SDK 36, build-tools 35.0.0:
+
+  ```sh
+  ./gradlew --offline --no-daemon --continue testDebugUnitTest lintDebug lintRelease assembleDebug assembleDebugAndroidTest
+  ```
+
+  **Passed:** 49 unit tests (38 game rules, 11 codec checks), zero failures/errors;
+  both lint variants, zero errors and 26 warnings each; debug and instrumentation
+  APK builds. The host-only JSON test dependency is not included in the app.
+- Existing `dist/SHA256SUMS` verification passed for all three packaged releases.
+  Package IDs, version code/name, release signing configuration, and permissions
+  are unchanged.
+
+The instrumentation APK was compiled but not executed in this run. No phone or
+emulator was connected. Before release, verify automatic counting on a phone with
+a step counter, including pause/resume, midnight, process restart, and reboot.
+
 ## Screens
 
 ![Adoption](screenshots/01-adoption.png)

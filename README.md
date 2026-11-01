@@ -66,6 +66,9 @@ for steps from another tracker; avoid entering steps already counted by the app.
 Sensor samples are rebaselined on install, reboot, pause/resume, and the first
 sample after midnight. An ambiguous interval spanning midnight is deliberately
 not assigned to either day, so a few steps around that boundary can be omitted.
+Paused, out-of-order, and other-day readings cannot replace the current baseline
+or award steps. The last event timestamp is saved with progress, so ordering
+checks survive process restarts; a reboot starts a new timestamp sequence.
 Background restrictions, force-stop, and aggressive power saving can interrupt
 tracking. Reopen the app to resume; keeping it unrestricted in your phone's
 battery settings can help. These hardware behaviors need a real walking check
@@ -76,6 +79,8 @@ save a backup first. Restore validates the backup before replacing state and
 pauses automatic tracking. Goal changes affect today and future days; history
 keeps the goal originally used. Rewards cannot be repeated by lowering and
 re-entering a manual total. Distance shown in the journal is an estimate.
+Existing version-1 backups remain readable. Backups with duplicate history dates
+or history overlapping the current or a future day are rejected before restore.
 
 ## Build
 
@@ -114,7 +119,7 @@ which erases its data; export a backup before doing so. Never commit a private k
 
 ## Verification
 
-The project includes 27 deterministic game-rule tests and a native device
+The project includes 49 deterministic game-rule and backup tests and a native device
 integration runner. With an emulator or device connected:
 
 ```sh

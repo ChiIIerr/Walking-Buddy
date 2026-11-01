@@ -6,14 +6,18 @@ import java.time.LocalDate;
 public class GameStateTest {
     private final LocalDate day=LocalDate.of(2026,10,4);
     private final long now=1791133200000L;
-    private GameState newBuddy(){GameState s=new GameState(day,now);s.adopt(0,"Milo",now);return s;}
-    @Test public void firstSensorReadingIsABaseline(){GameState s=newBuddy();s.sensor(12345,2,day);assertEquals(0,s.steps());s.sensor(12445,2,day);assertEquals(100,s.steps());}
-    @Test public void persistedSensorContinuesWithoutDoubleCounting(){GameState s=newBuddy();s.sensor(1000,2,day);s.sensor(1500,2,day);s.sensor(1500,2,day);assertEquals(500,s.steps());assertEquals(5,s.leaves);}
-    @Test public void rebootUsesANewBaselineEvenWhenCounterIsHigher(){GameState s=newBuddy();s.sensor(100,1,day);s.sensor(500,2,day);assertEquals(0,s.steps());s.sensor(600,2,day);assertEquals(100,s.steps());}
-    @Test public void counterResetNeverMakesNegativeSteps(){GameState s=newBuddy();s.sensor(1000,1,day);s.sensor(20,1,day);assertEquals(0,s.steps());s.sensor(30,1,day);assertEquals(10,s.steps());}
-    @Test public void newDayResetsTotalsAndRebaselinesSensor(){GameState s=newBuddy();s.sensor(1000,1,day);s.sensor(2000,1,day);s.advance(day.plusDays(1),now+86400000);s.sensor(2500,1,day.plusDays(1));assertEquals(0,s.steps());s.sensor(2600,1,day.plusDays(1));assertEquals(100,s.steps());assertEquals(1000,s.history.get(day).steps());}
-    @Test public void delayedOldDaySensorDoesNotCreditToday(){GameState s=newBuddy();s.sensor(1000,1,day);s.advance(day.plusDays(1),now+86400000);s.sensor(1200,1,day);assertEquals(0,s.steps());}
-    @Test public void manualAndSensorContributionsCombine(){GameState s=newBuddy();s.sensor(100,1,day);s.sensor(600,1,day);s.setManual(1000);assertEquals(1500,s.steps());assertEquals(500,s.sensorSteps);assertEquals(1000,s.manualSteps);}
+    private GameState newBuddy(){GameState s=new GameState(day,now);s.adopt(0,"Milo",now);s.tracking=true;return s;}
+    private long sensorTimestamp;
+    private void sample(GameState s, long value, int boot, LocalDate date) {
+        s.sensor(value, boot, date, ++sensorTimestamp);
+    }
+    @Test public void firstSensorReadingIsABaseline(){GameState s=newBuddy();sample(s, 12345,2,day);assertEquals(0,s.steps());sample(s, 12445,2,day);assertEquals(100,s.steps());}
+    @Test public void persistedSensorContinuesWithoutDoubleCounting(){GameState s=newBuddy();sample(s, 1000,2,day);sample(s, 1500,2,day);sample(s, 1500,2,day);assertEquals(500,s.steps());assertEquals(5,s.leaves);}
+    @Test public void rebootUsesANewBaselineEvenWhenCounterIsHigher(){GameState s=newBuddy();sample(s, 100,1,day);sample(s, 500,2,day);assertEquals(0,s.steps());sample(s, 600,2,day);assertEquals(100,s.steps());}
+    @Test public void counterResetNeverMakesNegativeSteps(){GameState s=newBuddy();sample(s, 1000,1,day);sample(s, 20,1,day);assertEquals(0,s.steps());sample(s, 30,1,day);assertEquals(10,s.steps());}
+    @Test public void newDayResetsTotalsAndRebaselinesSensor(){GameState s=newBuddy();sample(s, 1000,1,day);sample(s, 2000,1,day);s.advance(day.plusDays(1),now+86400000);sample(s, 2500,1,day.plusDays(1));assertEquals(0,s.steps());sample(s, 2600,1,day.plusDays(1));assertEquals(100,s.steps());assertEquals(1000,s.history.get(day).steps());}
+    @Test public void delayedOldDaySensorDoesNotCreditToday(){GameState s=newBuddy();sample(s, 1000,1,day);s.advance(day.plusDays(1),now+86400000);sample(s, 1200,1,day);assertEquals(0,s.steps());}
+    @Test public void manualAndSensorContributionsCombine(){GameState s=newBuddy();sample(s, 100,1,day);sample(s, 600,1,day);s.setManual(1000);assertEquals(1500,s.steps());assertEquals(500,s.sensorSteps);assertEquals(1000,s.manualSteps);}
     @Test public void manualEditIsAReplacement(){GameState s=newBuddy();s.setManual(1000);s.setManual(1200);assertEquals(1200,s.steps());}
     @Test public void editingStepsCannotRepeatRewards(){GameState s=newBuddy();s.setManual(6000);int leaves=s.leaves;int health=s.health;s.setManual(0);s.setManual(6000);assertEquals(leaves,s.leaves);assertEquals(health,s.health);}
     @Test public void reachingGoalRestoresHealthOnce(){GameState s=newBuddy();s.health=40;s.setManual(6000);assertEquals(55,s.health);s.setManual(8000);assertEquals(55,s.health);assertEquals(23,s.leaves);}
@@ -34,4 +38,111 @@ public class GameStateTest {
     @Test(expected=IllegalArgumentException.class) public void rejectsUnreasonableSteps(){newBuddy().setManual(200001);}
     @Test(expected=IllegalArgumentException.class) public void rejectsTinyGoal(){newBuddy().setGoal(100);}
     @Test(expected=IllegalArgumentException.class) public void rejectsLockedCompanion(){newBuddy().choose(7);}
+
+    @Test public void lateYesterdaySampleDoesNotDiscardTodaysSteps() {
+        GameState s = newBuddy();
+        sample(s, 1000, 1, day);
+        s.advance(day.plusDays(1), now + 86400000);
+        sample(s, 1200, 1, day.plusDays(1));
+        sample(s, 1300, 1, day.plusDays(1));
+        sample(s, 1150, 1, day);
+        sample(s, 1350, 1, day.plusDays(1));
+        assertEquals(150, s.sensorSteps);
+    }
+
+    @Test public void futureDaySampleDoesNotDiscardCurrentBaseline() {
+        GameState s = newBuddy();
+        sample(s, 100, 1, day);
+        sample(s, 150, 1, day.plusDays(1));
+        sample(s, 200, 1, day);
+        assertEquals(100, s.sensorSteps);
+    }
+
+    @Test public void negativeCounterDoesNotDiscardCurrentBaseline() {
+        GameState s = newBuddy();
+        sample(s, 100, 1, day);
+        sample(s, -1, 1, day);
+        sample(s, 200, 1, day);
+        assertEquals(100, s.sensorSteps);
+    }
+
+    @Test public void pausedTrackingIgnoresQueuedSensorReadings() {
+        GameState s = newBuddy();
+        s.tracking = true;
+        sample(s, 100, 1, day);
+        s.tracking = false;
+        sample(s, 6100, 1, day);
+        assertEquals(0, s.steps());
+        assertEquals(4, s.leaves);
+        assertFalse(s.goalRewarded);
+        assertEquals(100, s.lastSensor);
+    }
+
+    @Test public void outOfOrderSampleCannotCountStepsTwice() {
+        GameState s = newBuddy();
+        s.sensor(100, 1, day, 1000);
+        s.sensor(200, 1, day, 3000);
+        s.sensor(150, 1, day, 2000);
+        s.sensor(250, 1, day, 4000);
+        assertEquals(150, s.sensorSteps);
+        assertEquals(4000, s.lastSensorTimestamp);
+    }
+
+    @Test public void duplicateTimestampCannotCreditAnotherReading() {
+        GameState s = newBuddy();
+        s.sensor(100, 1, day, 1000);
+        s.sensor(6100, 1, day, 1000);
+        assertEquals(0, s.steps());
+        assertFalse(s.goalRewarded);
+        s.sensor(200, 1, day, 2000);
+        assertEquals(100, s.steps());
+    }
+
+    @Test public void rebootStartsANewTimestampSequence() {
+        GameState s = newBuddy();
+        s.sensor(100, 1, day, 9000);
+        s.sensor(500, 2, day, 10);
+        s.sensor(600, 2, day, 20);
+        assertEquals(100, s.steps());
+    }
+
+    @Test public void sameBootCounterResetWithNewTimestampStillWorks() {
+        GameState s = newBuddy();
+        s.sensor(1000, 1, day, 1000);
+        s.sensor(20, 1, day, 2000);
+        s.sensor(30, 1, day, 3000);
+        assertEquals(10, s.steps());
+    }
+
+    @Test public void pauseAndResumeDoesNotImportPausedSteps() {
+        GameState s = newBuddy();
+        sample(s, 100, 1, day);
+        s.tracking = false;
+        s.lastSensor = -1;
+        sample(s, 1000, 1, day);
+        s.tracking = true;
+        sample(s, 3000, 1, day);
+        sample(s, 3500, 1, day);
+        assertEquals(500, s.steps());
+    }
+
+    @Test public void invalidSampleMetadataDoesNotReplaceBaseline() {
+        GameState s = newBuddy();
+        s.sensor(100, 1, day, 1000);
+        s.sensor(1000, 1, null, 2000);
+        s.sensor(1000, 1, day, -1);
+        s.sensor(200, 1, day, 3000);
+        assertEquals(100, s.steps());
+    }
+
+    @Test public void cappedCounterDoesNotCreditOldStepsAfterManualCorrection() {
+        GameState s = newBuddy();
+        s.setManual(GameState.MAX_DAILY_STEPS - 100);
+        sample(s, 100, 1, day);
+        sample(s, 1000, 1, day);
+        assertEquals(GameState.MAX_DAILY_STEPS, s.steps());
+        s.setManual(0);
+        sample(s, 1100, 1, day);
+        assertEquals(200, s.steps());
+    }
 }
