@@ -102,6 +102,12 @@ public final class MainActivity extends Activity {
     private void chooseScreen(){
         LinearLayout brand=row();brand.addView(icon("leaf",GREEN,26));TextView mark=text("  Walking Buddy",18,INK,true);brand.addView(mark);content.addView(brand);gap(content,30);
         heading("YOUR NEXT ADVENTURE", "A little friend.\nA little more walking.","Turn your everyday steps into a happy life for a tiny buddy. Pick your first companion.");
+        content.addView(button("Restore a backup", "setup_restore", this::restore, false));
+        if (store.hasPreviousProgress()) {
+            gap(content, 8);
+            content.addView(button("Recover previous progress", "setup_recover", this::recoverPreviousProgress, false));
+        }
+        gap(content, 12);
         for(int r=0;r<2;r++){
             LinearLayout line=row();
             for(int c=0;c<2;c++){
@@ -252,6 +258,10 @@ public final class MainActivity extends Activity {
         option("chart","Export walking history","Save a CSV of your recorded days","export_csv",()->export("csv"));
         option("leaf","Back up my buddy","Save all progress to a file","export_backup",()->export("backup"));
         option("back","Restore a backup","Bring back a saved Walking Buddy file","restore_backup",this::restore);
+        if (store.hasPreviousProgress()) {
+            option("back", "Recover previous progress", "Use the progress saved before your last restore",
+                    "recover_previous", this::recoverPreviousProgress);
+        }
         gap(content,22);section("Good to know");
         option("heart","How to keep a happy buddy","Steps, leaves, and little acts of care","how_to",()->info("A happy little life","Reach your daily goal to restore 15 health and earn 3 bonus leaves. Every 500 steps earns another leaf. Miss a daily goal and your buddy loses 20 health. At zero health, their journey ends and you can adopt a new friend.\n\nFood, water, and cleanliness slowly decline. Snacks cost 1 leaf; water and cleaning are free. Care actions have a one-minute cooldown.\n\nThe first four companions are available immediately. Lifetime steps unlock the frog, panda, penguin, and dragon. Switching an unlocked buddy keeps health and care levels. Your journal celebrates your personal bests."));
         option("lock","Privacy policy","Read how your steps and files are handled","privacy",this::privacyDialog);
@@ -336,6 +346,51 @@ public final class MainActivity extends Activity {
         Intent intent=new Intent(Intent.ACTION_OPEN_DOCUMENT);intent.addCategory(Intent.CATEGORY_OPENABLE);intent.setType("application/json");
         try{startActivityForResult(intent,21);}catch(ActivityNotFoundException e){info("File opening unavailable","Enable a Files app to restore a backup.");}
     }
+    private void recoverPreviousProgress() {
+        GameState previous;
+        try {
+            previous = store.previousProgress();
+        } catch (IllegalStateException | ClassCastException e) {
+            info("Couldn't read previous progress", "Your current progress is still on this phone. You can try restoring a backup file.");
+            return;
+        }
+        confirmRestore(previous, "Recover previous progress?", "Recover progress");
+    }
+    private void confirmRestore(GameState restored, String title, String action) {
+        String buddy = restored.adopted ? restored.name : "No active buddy";
+        String summary = "Buddy: " + buddy + "\nLifetime steps: " + n(restored.lifetime())
+                + "\n\nYour current progress will be kept as the previous save. Automatic tracking will pause.";
+        new AlertDialog.Builder(this).setTitle(title).setMessage(summary)
+                .setNegativeButton("Cancel", null)
+                .setPositiveButton(action, (dialog, which) -> {
+                    try {
+                        store.replace(restored);
+                    } catch (IllegalStateException e) {
+                        info("Couldn't restore progress", "Your current progress is still on this phone.");
+                        return;
+                    }
+                    stopService(new Intent(this, StepService.class));
+                    setup = 0;
+                    tab = 0;
+                    render();
+                    toast("Progress restored.");
+                }).show();
+    }
+    private GameState readBackup(Uri uri) throws IOException {
+        try (InputStream in = getContentResolver().openInputStream(uri)) {
+            if (in == null) throw new IOException("File unavailable");
+            ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+            byte[] buffer = new byte[4096];
+            int count;
+            while ((count = in.read(buffer)) != -1) {
+                if (count > 2_000_000 - bytes.size()) throw new IOException("Backup too large");
+                bytes.write(buffer, 0, count);
+            }
+            String raw = bytes.toString(StandardCharsets.UTF_8.name());
+            if (raw.trim().isEmpty()) throw new IOException("Empty backup");
+            return StateStore.decode(raw);
+        }
+    }
     @Override protected void onActivityResult(int request,int result,Intent data){
         super.onActivityResult(request,result,data);if(result!=RESULT_OK||data==null||data.getData()==null)return;Uri uri=data.getData();
         if(request==20){
@@ -347,14 +402,12 @@ public final class MainActivity extends Activity {
             }else body=StateStore.encode(state);
             try(OutputStream out=getContentResolver().openOutputStream(uri)){if(out==null)throw new IOException("File unavailable");out.write(body.getBytes(StandardCharsets.UTF_8));toast("Your progress is saved.");}
             catch(IOException|SecurityException e){info("Couldn't save the file","Please choose a different location and try again.");}
-        }else if(request==21){
-            try(InputStream in=getContentResolver().openInputStream(uri)){
-                if(in==null)throw new IOException("File unavailable");ByteArrayOutputStream bytes=new ByteArrayOutputStream();byte[] buf=new byte[4096];int count;
-                while((count=in.read(buf))!=-1){bytes.write(buf,0,count);if(bytes.size()>2000000)throw new IOException("Backup too large");}
-                String raw=bytes.toString(StandardCharsets.UTF_8.name());if(raw.trim().isEmpty())throw new IOException("Empty backup");GameState restored=StateStore.decode(raw);
-                new AlertDialog.Builder(this).setTitle("Restore this adventure?").setMessage("Buddy: "+restored.name+"\nLifetime steps: "+n(restored.lifetime())+"\n\nThis replaces your current progress. Automatic tracking will be paused until you enable it again.")
-                    .setNegativeButton("Cancel",null).setPositiveButton("Restore progress",(d,w)->{stopService(new Intent(this,StepService.class));store.replace(restored);state=store.read();setup=0;tab=0;render();toast("Welcome back, "+state.name+"!");}).show();
-            }catch(IOException|RuntimeException e){info("Couldn't read this backup","Choose a valid Walking Buddy JSON backup. Your current progress has been kept.");}
+        } else if (request == 21) {
+            try {
+                confirmRestore(readBackup(uri), "Restore this adventure?", "Restore progress");
+            } catch (IOException | RuntimeException e) {
+                info("Couldn't read this backup", "Choose a valid Walking Buddy JSON backup. Your current progress has been kept.");
+            }
         }
     }
     private LinearLayout need(String title,ProgressBar progress,TextView value,int level){

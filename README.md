@@ -82,6 +82,11 @@ re-entering a manual total. Distance shown in the journal is an estimate.
 Existing version-1 backups remain readable. Backups with duplicate history dates
 or history overlapping the current or a future day are rejected before restore.
 
+Choose **Restore a backup** during initial setup or in Settings. The confirmation
+shows the buddy and lifetime steps before applying the backup. After a restore,
+**Recover previous progress** can bring back the saved adventure it replaced.
+Recovering that save keeps the progress it replaces in the same recovery slot.
+
 ## Build
 
 Install JDK 17 and Android SDK platform 36/build-tools 35.0.0. Set `ANDROID_HOME`
@@ -132,8 +137,8 @@ adb shell am instrument -w \
 
 The integration runner resets **only the debug app** and exercises adoption,
 manual step entry, goal rewards, care, navigation, validation, reduced animation,
-and persistence. It writes screenshots to the debug app's external `files/qa`
-directory. See [verification details](docs/VERIFICATION.md).
+backup restore during setup, recovery, and persistence. It writes screenshots to
+the debug app's external `files/qa` directory. See [verification details](docs/VERIFICATION.md).
 
 GitHub Actions uses Ubuntu 24.04 and Node 24 actions, runs unit tests and lint
 for debug and release, and builds a debug APK plus an **unsigned** release bundle.
