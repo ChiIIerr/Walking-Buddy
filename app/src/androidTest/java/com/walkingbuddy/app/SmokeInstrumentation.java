@@ -3,11 +3,14 @@ package com.walkingbuddy.app;
 import android.app.*;
 import android.content.*;
 import android.graphics.Bitmap;
+import android.net.Uri;
 import android.os.*;
 import android.view.*;
 import android.view.accessibility.AccessibilityNodeInfo;
 import android.widget.*;
 import java.io.*;
+import java.nio.charset.StandardCharsets;
+import java.time.LocalDate;
 
 /** Dependency-free device integration checks, isolated to the .debug app. */
 public final class SmokeInstrumentation extends Instrumentation {
@@ -37,11 +40,82 @@ public final class SmokeInstrumentation extends Instrumentation {
             tap("about");tapText("Got it");
             GameState s=store.read();String raw=StateStore.encode(s);GameState copy=StateStore.decode(raw);
             check(copy.steps()==6500&&copy.name.equals("Scout")&&copy.buddy==2,"Saved state round trip");
-            runOnMainSync(()->{activity.finish();});waitForIdleSync();
-            activity=(MainActivity)startActivitySync(new Intent(getTargetContext(),MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));waitForIdleSync();
+            relaunch();
             check(StateStore.get(getTargetContext()).read().steps()==6500,"Progress survives activity restart");assertTag("tab_0");
+            checkBackupRecovery(store);
             result.putString("stream","\nPASS: "+checks+" Walking Buddy integration checks. Screenshots in external files/qa.\n");result.putInt("checks",checks);finish(Activity.RESULT_OK,result);
         }catch(Throwable e){result.putString("stream","\nFAIL after "+checks+" checks: "+e+"\n");finish(Activity.RESULT_CANCELED,result);}
+    }
+    private void checkBackupRecovery(StateStore store) throws Exception {
+        String original = StateStore.encode(store.read());
+        GameState incoming = new GameState(LocalDate.now(), System.currentTimeMillis());
+        incoming.adopt(1, "Maple", System.currentTimeMillis());
+        incoming.setManual(1234);
+        incoming.tracking = true;
+        incoming.lastSensor = 4000;
+        incoming.lastSensorTimestamp = 2000;
+        String backup = StateStore.encode(incoming);
+
+        tap("tab_3");
+        pickBackup("restore_backup", "invalid backup");
+        tapText("Got it");
+        check(store.read().steps() == 6500 && !store.hasPreviousProgress(), "Invalid backup keeps progress and recovery slot");
+        pickBackup("restore_backup", backup);
+        tapText("Cancel");
+        check(store.read().steps() == 6500 && !store.hasPreviousProgress(), "Canceling file restore leaves progress alone");
+        pickBackup("restore_backup", backup);
+        tapText("Restore progress");
+        GameState restored = store.read();
+        check(restored.steps() == 1234 && restored.name.equals("Maple"), "Selected file restores the buddy and steps");
+        check(!restored.tracking && restored.lastSensor == -1 && restored.lastSensorTimestamp == -1,
+                "Restore pauses tracking and clears the previous sensor baseline");
+        check(store.previousProgress().steps() == 6500, "Restore preserves the previous save");
+
+        relaunch();
+        tap("tab_3");
+        tap("recover_previous");
+        tapText("Cancel");
+        check(store.read().steps() == 1234 && store.previousProgress().steps() == 6500,
+                "Canceling recovery keeps both saves");
+        tap("recover_previous");
+        tapText("Recover progress");
+        check(store.read().steps() == 6500 && store.read().name.equals("Scout"), "Recovery returns to the previous buddy");
+        check(store.previousProgress().steps() == 1234, "Recovery retains the replaced save");
+
+        runOnMainSync(store::reset);
+        relaunch();
+        pickBackup("setup_restore", original);
+        tapText("Restore progress");
+        assertTag("tab_0");
+        check(store.read().steps() == 6500 && store.read().adopted, "Setup can restore an adventure before adopting a buddy");
+    }
+    private void pickBackup(String button, String contents) throws Exception {
+        File file = File.createTempFile("walking-buddy-test-", ".json", getTargetContext().getCacheDir());
+        try {
+            try (OutputStream out = new FileOutputStream(file)) {
+                out.write(contents.getBytes(StandardCharsets.UTF_8));
+            }
+            IntentFilter filter = new IntentFilter(Intent.ACTION_OPEN_DOCUMENT);
+            filter.addCategory(Intent.CATEGORY_OPENABLE);
+            filter.addDataType("application/json");
+            Intent data = new Intent().setData(Uri.fromFile(file));
+            ActivityMonitor picker = addMonitor(filter, new ActivityResult(Activity.RESULT_OK, data), true);
+            try {
+                tap(button);
+                check(picker.getHits() == 1, "Opened the backup file picker from " + button);
+            } finally {
+                removeMonitor(picker);
+            }
+        } finally {
+            file.delete();
+        }
+    }
+    private void relaunch() {
+        runOnMainSync(activity::finish);
+        waitForIdleSync();
+        activity = (MainActivity) startActivitySync(new Intent(getTargetContext(), MainActivity.class)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+        waitForIdleSync();
     }
     private void check(boolean condition,String label){if(!condition)throw new AssertionError(label);checks++;}
     private View find(View view,String tag){if(tag.equals(view.getTag()))return view;if(view instanceof ViewGroup){ViewGroup group=(ViewGroup)view;for(int i=0;i<group.getChildCount();i++){View found=find(group.getChildAt(i),tag);if(found!=null)return found;}}return null;}
