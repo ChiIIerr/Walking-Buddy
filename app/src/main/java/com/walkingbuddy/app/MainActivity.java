@@ -208,8 +208,12 @@ public final class MainActivity extends Activity {
         heading("ONE STEP AT A TIME","Look how far you've come.","Little walks add up to wonderful things.");
         LinearLayout metrics=row();metrics.addView(statCard(n(state.lifetime()),"Lifetime steps","foot"),weighted(0,6));metrics.addView(statCard(state.bestStreak()+" day"+(state.bestStreak()==1?"":"s"),"Best streak","fire"),weighted(6,0));content.addView(metrics);gap(content,14);
         LinearLayout week=card();LinearLayout wh=row();wh.addView(text("Your week in steps",17,INK,true),new LinearLayout.LayoutParams(0,-2,1));wh.addView(text("LAST 7 DAYS",10,MUTED,true));week.addView(wh);gap(week,14);
-        week.addView(new WeekChart(this,state),new LinearLayout.LayoutParams(-1,dp(160)));gap(week,10);
-        long weekSteps=state.steps();for(int i=1;i<7;i++){GameState.Day d=state.history.get(state.day.minusDays(i));if(d!=null)weekSteps+=d.steps();}
+        WeekProgress progress = new WeekProgress(state);
+        week.addView(new WeekChart(this, progress), new LinearLayout.LayoutParams(-1, dp(160)));
+        gap(week, 6);
+        week.addView(text("Markers show each day's step goal.", 11, MUTED, false));
+        gap(week, 10);
+        int weekSteps = progress.totalSteps;
         week.addView(text(n(weekSteps)+" steps · about "+String.format(Locale.getDefault(),"%.1f",weekSteps*.00072)+" km",13,GREEN,true));gap(week,4);week.addView(text("Distance is an estimate using a 0.72 m stride.",11,MUTED,false));content.addView(week);gap(content,22);
         section("Little milestones");
         String[] titles={"First adventure","Finding your rhythm","A wonderful week","Trail explorer","The whole walking club","Care comes naturally"};

@@ -41,7 +41,8 @@ where requested. No Play release has been submitted by this repository.
   goal earns three bonus leaves. Snacks cost one leaf. Water and cleaning are free.
 - Pet health, mood, gradual care decay, and a new-adoption/memorial loop.
   Reaching a goal restores 15 health; a missed daily goal costs 20 health.
-- Daily streaks, weekly chart, milestone badges, personal bests, and history.
+- Daily streaks, weekly chart with each day's saved goal, milestone badges,
+  personal bests, and history.
 - Nicknames, scenery selection, reduced animation, progress sharing, CSV export,
   and JSON backup/restore through Android's file picker.
 - Local-only storage. No ads, analytics, network permission, or third-party runtime SDKs.
@@ -124,7 +125,7 @@ which erases its data; export a backup before doing so. Never commit a private k
 
 ## Verification
 
-The project includes 49 deterministic game-rule and backup tests and a native device
+The project includes 52 deterministic game-rule, journal, and backup tests and a native device
 integration runner. With an emulator or device connected:
 
 ```sh
