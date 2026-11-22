@@ -30,10 +30,21 @@ jobs:
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'platforms;android-36' 'build-tools;35.0.0' 2>&1 | tee ci-logs/sdk.log
       - name: Test, lint, and build both distribution formats
         run: |
-          ./gradlew --no-daemon --continue testDebugUnitTest lintDebug lintRelease assembleDebug bundleRelease --stacktrace 2>&1 | tee ci-logs/build.log
+          ./gradlew --no-daemon --continue testDebugUnitTest lintDebug lintRelease assembleDebug assembleDebugAndroidTest bundleRelease --stacktrace 2>&1 | tee ci-logs/build.log
           test -f app/build/reports/tests/testDebugUnitTest/index.html
           test -f app/build/reports/lint-results-debug.html
           test -f app/build/reports/lint-results-release.html
+      - name: Run Android UI checks
+        if: ${{ github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' }}
+        timeout-minutes: 15
+        run: bash tools/check_android_ui.sh
+      - name: Upload Android UI results
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        if: ${{ !cancelled() && hashFiles('ci-logs/ui/**') != '' }}
+        with:
+          name: Android-UI-results
+          path: ci-logs/ui/
+          if-no-files-found: error
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: Walking-Buddy-debug-APK

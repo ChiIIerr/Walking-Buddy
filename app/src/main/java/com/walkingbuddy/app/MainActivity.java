@@ -209,7 +209,9 @@ public final class MainActivity extends Activity {
         LinearLayout metrics=row();metrics.addView(statCard(n(state.lifetime()),"Lifetime steps","foot"),weighted(0,6));metrics.addView(statCard(state.bestStreak()+" day"+(state.bestStreak()==1?"":"s"),"Best streak","fire"),weighted(6,0));content.addView(metrics);gap(content,14);
         LinearLayout week=card();LinearLayout wh=row();wh.addView(text("Your week in steps",17,INK,true),new LinearLayout.LayoutParams(0,-2,1));wh.addView(text("LAST 7 DAYS",10,MUTED,true));week.addView(wh);gap(week,14);
         WeekProgress progress = new WeekProgress(state);
-        week.addView(new WeekChart(this, progress), new LinearLayout.LayoutParams(-1, dp(160)));
+        WeekChart chart = new WeekChart(this, progress);
+        chart.setTag("week_chart");
+        week.addView(chart, new LinearLayout.LayoutParams(-1, dp(160)));
         gap(week, 6);
         week.addView(text("Markers show each day's step goal.", 11, MUTED, false));
         gap(week, 10);
