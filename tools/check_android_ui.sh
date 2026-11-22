@@ -4,9 +4,11 @@ set -euo pipefail
 sdk_root="${ANDROID_HOME:?Set ANDROID_HOME to the Android SDK directory}"
 export PATH="$sdk_root/platform-tools:$PATH"
 export ANDROID_SERIAL=emulator-5554
+export ANDROID_USER_HOME="${RUNNER_TEMP:-${TMPDIR:-/tmp}}/walking-buddy-android"
+export ANDROID_AVD_HOME="$ANDROID_USER_HOME/avd"
 avd_name=walking_buddy_ci
 results_dir="$PWD/ci-logs/ui"
-mkdir -p "$results_dir"
+mkdir -p "$results_dir" "$ANDROID_AVD_HOME"
 
 emulator_pid=
 cleanup() {
@@ -27,7 +29,9 @@ fi
     'emulator' 'system-images;android-35;default;x86_64' 2>&1 | tee "$results_dir/sdk.log"
 "$sdk_root/emulator/emulator" -accel-check
 printf 'no\n' | "$sdk_root/cmdline-tools/latest/bin/avdmanager" create avd \
-    --force --name "$avd_name" --package 'system-images;android-35;default;x86_64' --device pixel_6
+    --force --name "$avd_name" --path "$ANDROID_AVD_HOME/$avd_name.avd" \
+    --package 'system-images;android-35;default;x86_64' --device pixel_6
+"$sdk_root/emulator/emulator" -list-avds
 "$sdk_root/emulator/emulator" -avd "$avd_name" -port 5554 -accel on \
     -no-window -no-audio -no-snapshot -no-boot-anim -gpu swiftshader \
     -memory 2048 -cores 2 > "$results_dir/emulator.log" 2>&1 &
