@@ -11,6 +11,7 @@ import android.widget.*;
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
+import java.text.NumberFormat;
 
 /** Dependency-free device integration checks, isolated to the .debug app. */
 public final class SmokeInstrumentation extends Instrumentation {
@@ -20,6 +21,8 @@ public final class SmokeInstrumentation extends Instrumentation {
     @Override public void onStart(){
         Bundle result=new Bundle();
         try{
+            check(getTargetContext().getPackageName().equals("com.walkingbuddy.app.debug"),
+                    "Device checks target the debug app");
             StateStore store=StateStore.get(getTargetContext());
             android.content.SharedPreferences prefs=getTargetContext().getSharedPreferences("walking_buddy",Context.MODE_PRIVATE);
             prefs.edit().putString("previous_backup","old private progress").putString("unreadable_backup","damaged private progress").commit();
@@ -43,8 +46,33 @@ public final class SmokeInstrumentation extends Instrumentation {
             relaunch();
             check(StateStore.get(getTargetContext()).read().steps()==6500,"Progress survives activity restart");assertTag("tab_0");
             checkBackupRecovery(store);
+            checkJournalGoals(store);
             result.putString("stream","\nPASS: "+checks+" Walking Buddy integration checks. Screenshots in external files/qa.\n");result.putInt("checks",checks);finish(Activity.RESULT_OK,result);
-        }catch(Throwable e){result.putString("stream","\nFAIL after "+checks+" checks: "+e+"\n");finish(Activity.RESULT_CANCELED,result);}
+        } catch (Throwable e) {
+            StringWriter trace = new StringWriter();
+            e.printStackTrace(new PrintWriter(trace));
+            result.putString("stream", "\nFAIL after " + checks + " checks\n" + trace);
+            finish(Activity.RESULT_CANCELED, result);
+        }
+    }
+    private void checkJournalGoals(StateStore store) throws Exception {
+        runOnMainSync(() -> store.update(s -> {
+            s.history.put(s.day.minusDays(1), new GameState.Day(4500, 0, 4000));
+            s.setGoal(8000);
+            s.setManual(4500);
+        }));
+        tap("tab_2");
+        View chart = find(activity.getWindow().getDecorView(), "week_chart");
+        check(chart != null, "Weekly chart is present");
+        String description = chart.getContentDescription().toString();
+        NumberFormat numbers = NumberFormat.getIntegerInstance();
+        String steps = numbers.format(4500) + " steps, goal ";
+        check(description.contains(steps + numbers.format(4000) + ". Goal reached."),
+                "Chart accessibility retains yesterday's successful goal");
+        check(description.contains(steps + numbers.format(8000) + ". Goal not reached."),
+                "Chart accessibility uses today's higher goal");
+        check(description.contains("No record."), "Skipped dates have an accessibility label");
+        capture("06-journal-goals");
     }
     private void checkBackupRecovery(StateStore store) throws Exception {
         String original = StateStore.encode(store.read());

@@ -148,6 +148,10 @@ fail a successful build. No private signing material is available to CI. Use the
 signed artifacts in `dist/` for distribution. Increment `versionCode` for each
 new Play upload and regenerate `dist/SHA256SUMS` when replacing release files.
 
+Pull requests and manual workflow runs also execute the device integration runner
+on an Android 15 emulator at standard and 150% font scales. The `Android-UI-results`
+artifact contains screenshots, runner output, and emulator logs for each run.
+
 ## Art and licensing
 
 Source: [MIT](LICENSE). Original art: [CC0 1.0](art/LICENSE.md).
